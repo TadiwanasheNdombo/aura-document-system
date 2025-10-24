@@ -1,0 +1,240 @@
+/* Using Ecobank-inspired color palette */
+:root {
+    --primary-blue: #0047AB;
+    --secondary-blue: #0056b3;
+    --light-grey: #f4f7f9;
+    --dark-grey: #333;
+    --white: #ffffff;
+    --accent-teal: #008080;
+    --success-green: #28a745;
+    --warning-orange: #ffc107;
+    --error-red: #dc3545;
+    --border-color: #dee2e6;
+}
+
+body, html {
+    height: 100%;
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--light-grey);
+}
+
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    padding: 20px;
+}
+
+.login-box {
+    background: var(--white);
+    padding: 40px 50px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    width: 380px;
+    text-align: center;
+}
+
+.login-box h2 {
+    color: var(--primary-blue);
+    margin-bottom: 10px;
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.login-box p {
+    color: #6c757d;
+    margin-bottom: 35px;
+}
+
+.input-group {
+    margin-bottom: 25px;
+    text-align: left;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #495057;
+    font-weight: 600;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-sizing: border-box;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(0, 71, 171, 0.15);
+}
+
+.btn-login {
+    width: 100%;
+    padding: 14px;
+    background-color: var(--primary-blue);
+    color: var(--white);
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.btn-login:hover {
+    background-color: var(--secondary-blue);
+    transform: translateY(-2px);
+}
+
+/* Dashboard styles */
+.dashboard-container {
+    width: 95%;
+    max-width: 1400px;
+    margin: 20px auto;
+    padding: 30px;
+}
+
+.dashboard-header {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 20px;
+    margin-bottom: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dashboard-header h1 {
+    color: var(--primary-blue);
+    margin: 0;
+    font-size: 32px;
+}
+
+.header-actions a {
+    text-decoration: none;
+    color: var(--primary-blue);
+    font-weight: 600;
+    margin-left: 20px;
+    transition: color 0.3s;
+}
+
+.header-actions a:hover {
+    color: var(--secondary-blue);
+}
+
+.btn-refresh {
+    background-color: var(--accent-teal);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+}
+
+.package-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 25px;
+}
+
+.package-card {
+    background: var(--white);
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    overflow: hidden;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.package-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
+
+.card-header {
+    padding: 15px 20px;
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.card-header.status-clean {
+    background-color: #e4f8f0;
+    color: #1d9a6c;
+    border-left: 5px solid var(--success-green);
+}
+
+.card-header.status-flagged {
+    background-color: #fff8e1;
+    color: #f57c00;
+    border-left: 5px solid var(--warning-orange);
+}
+
+.card-body {
+    padding: 20px;
+}
+
+.report-section {
+    margin-bottom: 20px;
+}
+
+.report-section h4 {
+    color: var(--primary-blue);
+    font-size: 16px;
+    margin-top: 0;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.report-section h4 i {
+    margin-right: 8px;
+}
+
+.report-section ul {
+    list-style-type: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+.report-section li {
+    background: var(--light-grey);
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.document-type {
+    font-style: italic;
+    color: #6c757d;
+}
+
+.quality-issues {
+    color: var(--error-red);
+    font-weight: bold;
+}
+
+.missing-docs-list li {
+    color: var(--error-red);
+    font-weight: bold;
+    background-color: #fdecea;
+}
+
+.no-packages {
+    background: var(--white);
+    padding: 40px;
+    text-align: center;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+

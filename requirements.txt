@@ -1,0 +1,9 @@
+opencv-python-headless==4.8.1.78  # Updated to a version with pre-built Windows wheels
+pytesseract==0.3.13
+PyPDF2==3.0.1
+pdf2image==1.16.3  # Slightly older but compatible version
+Pillow==9.5.0  # Stable pre-built wheel for Windows
+numpy==1.24.3  # Version with pre-built Windows wheels
+flask-cors==4.0.0
+python-dotenv==1.0.0
+python-multipart==0.0.6

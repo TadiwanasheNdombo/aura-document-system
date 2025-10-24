@@ -1,0 +1,364 @@
+ :root {
+    --ecobank-blue: #0052B4;
+    --ecobank-light-blue: #0070D1;
+    --ecobank-white: #FFFFFF;
+    --ecobank-black: #000000;
+    --ecobank-light-green: #6EC531;
+    --ecobank-dark-green: #4C9A2B;
+    --gray-100: #F7FAFC;
+    --gray-200: #EDF2F7;
+    --gray-300: #E2E8F0;
+    --gray-400: #CBD5E0;
+    --gray-500: #A0AEC0;
+    --gray-600: #718096;
+    --gray-700: #4A5568;
+    --gray-800: #2D3748;
+    --gray-900: #1A202C;
+    --success: #48BB78;
+    --warning: #ECC94B;
+    --error: #F56565;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--gray-100);
+    color: var(--gray-800);
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+header {
+    padding: 24px 0;
+    border-bottom: 1px solid var(--gray-200);
+    margin-bottom: 32px;
+}
+
+.logo {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.logo h1 {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--ecobank-blue);
+    margin-bottom: 4px;
+}
+
+.logo span {
+    font-size: 14px;
+    color: var(--gray-600);
+    font-weight: 500;
+}
+
+main {
+    margin-bottom: 60px;
+}
+
+.upload-section, .results-section, .loading-section, .error-section {
+    background: var(--ecobank-white);
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    margin-bottom: 24px;
+}
+
+.upload-section h2, .results-section h2 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-bottom: 8px;
+}
+
+.upload-section p {
+    color: var(--gray-600);
+    margin-bottom: 24px;
+}
+
+.upload-area {
+    border: 2px dashed var(--gray-300);
+    border-radius: 8px;
+    padding: 48px 24px;
+    text-align: center;
+    transition: all 0.3s ease;
+    margin-bottom: 16px;
+}
+
+.upload-area:hover, .upload-area.drag-over {
+    border-color: var(--ecobank-blue);
+    background-color: var(--gray-100);
+}
+
+.upload-content svg {
+    color: var(--gray-400);
+    margin-bottom: 16px;
+}
+
+.upload-content p {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--gray-700);
+    margin-bottom: 8px;
+}
+
+.upload-content span {
+    display: block;
+    color: var(--gray-500);
+    margin-bottom: 16px;
+}
+
+.browse-btn {
+    display: inline-block;
+    background-color: var(--ecobank-blue);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.browse-btn:hover {
+    background-color: var(--ecobank-light-blue);
+}
+
+.supported-formats {
+    text-align: center;
+}
+
+.supported-formats p {
+    font-size: 14px;
+    color: var(--gray-500);
+    margin-bottom: 0;
+}
+
+.results-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin-bottom: 32px;
+}
+
+@media (max-width: 968px) {
+    .results-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.document-preview h3, .extracted-data h3, .raw-text h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-bottom: 16px;
+}
+
+.preview-container {
+    background-color: var(--gray-100);
+    border-radius: 8px;
+    padding: 16px;
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+}
+
+.preview-container img, .preview-container iframe {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 4px;
+}
+
+.quality-check h4 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 12px;
+}
+
+.quality-indicators {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+}
+
+.quality-indicator {
+    background-color: var(--gray-100);
+    padding: 12px;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.quality-indicator.good {
+    background-color: rgba(72, 187, 120, 0.1);
+    color: var(--success);
+}
+
+.quality-indicator.warning {
+    background-color: rgba(236, 201, 75, 0.1);
+    color: var(--warning);
+}
+
+.quality-indicator.error {
+    background-color: rgba(245, 101, 101, 0.1);
+    color: var(--error);
+}
+
+.quality-indicator p {
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.quality-indicator span {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--gray-700);
+    margin-bottom: 6px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--gray-300);
+    border-radius: 6px;
+    font-size: 16px;
+    color: var(--gray-800);
+    background-color: var(--gray-100);
+}
+
+.form-group input:read-only {
+    background-color: var(--gray-100);
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--ecobank-blue);
+    background-color: var(--ecobank-white);
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.btn-primary, .btn-secondary {
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background-color: var(--ecobank-blue);
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background-color: var(--ecobank-light-blue);
+}
+
+.btn-primary:disabled {
+    background-color: var(--gray-400);
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background-color: var(--ecobank-white);
+    color: var(--ecobank-blue);
+    border: 1px solid var(--gray-300);
+}
+
+.btn-secondary:hover {
+    background-color: var(--gray-100);
+}
+
+.raw-text {
+    margin-top: 32px;
+}
+
+.text-container {
+    background-color: var(--gray-100);
+    border-radius: 8px;
+    padding: 16px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.loading-section {
+    text-align: center;
+    padding: 60px 32px;
+}
+
+.spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--gray-200);
+    border-top: 4px solid var(--ecobank-blue);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-section p {
+    color: var(--gray-600);
+    font-size: 16px;
+}
+
+.error-section {
+    text-align: center;
+    padding: 40px 32px;
+}
+
+.error-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    color: var(--error);
+}
+
+.error-message svg {
+    width: 24px;
+    height: 24px;
+}
+
+#errorText {
+    font-weight: 500;
+    margin-bottom: 0;
+}

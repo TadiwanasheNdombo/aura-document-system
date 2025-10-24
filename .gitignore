@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment
+.env
+venv/
+
+# Application-generated directories
+packages_to_process/
+clean_packages/
+flagged_for_review/
+static/uploads/
+
+# IDE / Editor specific
+.vscode/

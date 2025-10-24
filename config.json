@@ -1,0 +1,30 @@
+{
+  "document_checklists": {
+    "INDIVIDUAL": [
+      "Mandate Card",
+      "ID Document",
+      "Proof of Address"
+    ],
+    "COMPANY": [
+      "Tax Clearance Form",
+      "Mandate Card",
+      "Elevate Form (EVL)",
+      "UBO Form",
+      "Reg Docs",
+      "ID Document"
+    ]
+  },
+  "document_keywords": {
+    "Mandate Card": ["mandate", "account signing"],
+    "ID Document": ["national identity", "id number", "passport"],
+    "Proof of Address": ["proof of residence", "utility bill", "bank statement"],
+    "Tax Clearance Form": ["tax clearance", "itf263"],
+    "Elevate Form (EVL)": ["elevate", "evl"],
+    "UBO Form": ["ultimate beneficial owner", "ubo"],
+    "Reg Docs": ["certificate of incorporation", "cr14", "cr6"]
+  },
+  "classification_keywords": {
+    "COMPANY": ["company", "limited", "ltd", "pvt"],
+    "INDIVIDUAL": ["individual", "personal account"]
+  }
+}

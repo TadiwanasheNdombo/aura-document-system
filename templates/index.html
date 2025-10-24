@@ -1,0 +1,136 @@
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura - Document Processing System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <h1>Aura</h1>
+                <span>Automated Universal Review Assistant</span>
+            </div>
+        </header>
+
+        <main>
+            <div class="upload-section">
+                <h2>Upload Document</h2>
+                <p>Upload a scanned ID or PDF document to extract information</p>
+                
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-content">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <p>Drag & drop your file here</p>
+                        <span>or</span>
+                        <label for="fileInput" class="browse-btn">Browse files</label>
+                        <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png" hidden>
+                    </div>
+                </div>
+                
+                <div class="supported-formats">
+                    <p>Supported formats: PDF, JPG, JPEG, PNG</p>
+                </div>
+            </div>
+
+            <div class="results-section" id="resultsSection" style="display: none;">
+                <h2>Extracted Information</h2>
+                
+                <div class="results-container">
+                    <div class="document-preview">
+                        <h3>Document Preview</h3>
+                        <div class="preview-container" id="previewContainer">
+                            <!-- Document preview will be inserted here -->
+                        </div>
+                        
+                        <div class="quality-check" id="qualityCheck">
+                            <h4>Quality Assessment</h4>
+                            <div class="quality-indicators">
+                                <!-- Quality indicators will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="extracted-data">
+                        <h3>Extracted Fields</h3>
+                        <form id="dataForm">
+                            <div class="form-group">
+                                <label for="idNumber">ID Number</label>
+                                <input type="text" id="idNumber" name="idNumber" readonly>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="fullName">Full Name</label>
+                                <input type="text" id="fullName" name="fullName" readonly>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="dob">Date of Birth</label>
+                                <input type="text" id="dob" name="dob" readonly>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="gender">Gender</label>
+                                <input type="text" id="gender" name="gender" readonly>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="nationality">Nationality</label>
+                                <input type="text" id="nationality" name="nationality" readonly>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="issueDate">Issue Date</label>
+                                <input type="text" id="issueDate" name="issueDate" readonly>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="expiryDate">Expiry Date</label>
+                                <input type="text" id="expiryDate" name="expiryDate" readonly>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="button" class="btn-secondary" id="editBtn">Edit Fields</button>
+                                <button type="button" class="btn-primary" id="saveBtn" disabled>Save Information</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="raw-text" id="rawTextSection">
+                    <h3>Extracted Text</h3>
+                    <div class="text-container" id="rawTextContainer">
+                        <!-- Raw OCR text will be inserted here -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="loading-section" id="loadingSection" style="display: none;">
+                <div class="spinner"></div>
+                <p>Processing your document...</p>
+            </div>
+
+            <div class="error-section" id="errorSection" style="display: none;">
+                <div class="error-message">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <p id="errorText">An error occurred while processing your document.</p>
+                </div>
+                <button type="button" class="btn-primary" onclick="hideError()">Try Again</button>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
