@@ -114,8 +114,16 @@
             <div class="d-flex justify-content-center mb-4">
                 <div class="btn-group" role="group">
                     <button type="button" class="btn btn-primary form-toggle-btn active" data-form="basic-details-form">Basic Details</button>
-                    <button type="button" class="btn btn-outline-primary form-toggle-btn" data-form="kyc-details-form">Process Details</button>
+                    <button type="button" class="btn btn-outline-primary form-toggle-btn" data-form="kyc-details-form">Personal Details</button>
                 </div>
+            </div>
+
+            <!-- Shared Auto-Fetch Button -->
+            <div class="d-grid gap-2 mb-4">
+                <button type="button" class="btn btn-outline-primary" id="auto-fetch-btn">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" id="loading-spinner"></span>
+                    <i class="fas fa-magic me-1"></i> Auto-Fetch from Document
+                </button>
             </div>
 
             <!-- Basic Details Form -->
@@ -160,13 +168,6 @@
             <!-- KYC Details Form -->
             <div id="kyc-details-form" class="form-container" style="display: none;">
                 <form id="account-form">
-                    <div class="d-grid gap-2 mb-4">
-                        <button type="button" class="btn btn-outline-primary" id="auto-fetch-btn">
-                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" id="loading-spinner"></span>
-                            <i class="fas fa-magic me-1"></i> Auto-Fetch from Document
-                        </button>
-                    </div>
-
                     <div class="row">
                         <div class="col-md-12 mb-3">
                             <label for="fullName" class="form-label">Full Name</label>
@@ -377,13 +378,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (data.success) {
                 const fields = data.fields;
-                document.getElementById('fullName').value = fields.name || '';
+                console.log("Received fields:", fields); // For debugging
+
+                // --- Personal Details Form Population ---
+                // Note the mapping from 'full_name' (from API) to the 'fullName' input.
+                document.getElementById('fullName').value = fields.full_name || '';
                 document.getElementById('idNumber').value = fields.id_number || '';
                 document.getElementById('dob').value = fields.date_of_birth || '';
-                document.getElementById('gender').value = fields.gender || '';
                 document.getElementById('nationality').value = fields.nationality || '';
                 document.getElementById('issueDate').value = fields.issue_date || '';
                 document.getElementById('expiryDate').value = fields.expiry_date || '';
+                // The 'gender' field is not extracted by the current backend, so we'll leave it blank.
+                document.getElementById('gender').value = fields.gender || '';
+
+                // --- Basic Details Form Population ---
+                document.getElementById('profession').value = fields.profession || '';
+                document.getElementById('employmentStatus').value = fields.employment_status || '';
+                // The 'currentEmployer' field is not extracted, but we can infer it from employment status.
+                if (fields.employment_status === 'Self-Employed') {
+                    document.getElementById('currentEmployer').value = 'SELF';
+                }
+                document.getElementById('salary').value = fields.monthly_salary || '';
+                document.getElementById('employerAddress').value = fields.employer_address || '';
+
                 alert('Details fetched successfully!');
             } else {
                 alert('Failed to fetch details: ' + (data.error || 'Unknown error'));
