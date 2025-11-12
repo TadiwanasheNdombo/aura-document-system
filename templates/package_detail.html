@@ -197,8 +197,8 @@
                             <input type="text" class="form-control" id="issueDate" name="issue_date" placeholder="DD/MM/YYYY">
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="expiryDate" class="form-label">Expiry Date</label>
-                            <input type="text" class="form-control" id="expiryDate" name="expiry_date" placeholder="DD/MM/YYYY">
+                            <label for="placeOfBirth" class="form-label">Place of Birth</label>
+                            <input type="text" class="form-control" id="placeOfBirth" name="place_of_birth">
                         </div>
                     </div>
 
@@ -268,24 +268,27 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     console.log("DOM fully loaded and parsed.");
-    
+
+    // Map backend response keys to form input IDs (moved to top-level scope)
+    const fieldIdMap = {
+        'full_name': 'fullName',
+        'id_number': 'idNumber',
+        'date_of_birth': 'dob',
+        'gender': 'gender',
+        'nationality': 'nationality',
+        'issue_date': 'issueDate',
+        'place_of_birth': 'placeOfBirth',
+        'profession': 'profession',
+        'employment_status': 'employmentStatus',
+        'monthly_salary': 'salary',
+        'employer_address': 'employerAddress',
+        'current_employer': 'currentEmployer'
+    };
+
     // --- Gemini-powered auto-fetch logic ---
     const autoFetchBtn = document.getElementById('auto-fetch-btn');
     if (autoFetchBtn) {
     const spinner = document.getElementById('loading-spinner');
-
-    console.log("Auto-Fetch Button:", autoFetchBtn);
-    // Map extracted field names to form input IDs
-    const fieldIdMap = {
-        'SURNAME': 'fullName', // Assuming surname and name are combined
-        'NAME': 'fullName',
-        'OCCUPATION': 'profession',
-        'GROSS_MONTHLY_INCOME': 'salary',
-        'ID_NUMBER': 'idNumber',
-        'DATE_OF_BIRTH': 'dob',
-        'GENDER': 'gender',
-        'NATIONALITY': 'nationality'
-    };
 
         autoFetchBtn.addEventListener('click', async function() {
         console.log("Auto-Fetch button clicked!");
@@ -361,21 +364,30 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function populateForms(data) {
-        const allFields = [...(data.mandate_card || []), ...(data.national_id || [])];
-        allFields.forEach(field => {
-            const inputId = fieldIdMap[field.field_name];
-            if (inputId) {
-                const inputElement = document.getElementById(inputId);
-                if (inputElement) {
-                    // Handle combined Full Name field
-                    if (field.field_name === 'SURNAME' || field.field_name === 'NAME') {
-                        inputElement.value = (inputElement.value + ' ' + field.extracted_value).trim();
-                    } else {
-                        inputElement.value = field.extracted_value;
+        // Mandate Card fields
+        if (data.mandate_card) {
+            Object.entries(data.mandate_card).forEach(([key, value]) => {
+                const inputId = fieldIdMap[key];
+                if (inputId) {
+                    const inputElement = document.getElementById(inputId);
+                    if (inputElement) {
+                        inputElement.value = value || '';
                     }
                 }
-            }
-        });
+            });
+        }
+        // National ID fields
+        if (data.national_id) {
+            Object.entries(data.national_id).forEach(([key, value]) => {
+                const inputId = fieldIdMap[key];
+                if (inputId) {
+                    const inputElement = document.getElementById(inputId);
+                    if (inputElement) {
+                        inputElement.value = value || '';
+                    }
+                }
+            });
+        }
     }
 
     // Document panel elements

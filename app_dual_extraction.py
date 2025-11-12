@@ -169,54 +169,115 @@ def extract_dual_source():
         print(f"ERROR: Mandate Card validation failed. Details: {error_details}") # Add server-side logging
         return jsonify({"error": "Mandate Card extraction or validation failed", "details": error_details}), 422
 
-    # --- TEMPORARILY DISABLED FOR RATE-LIMIT TESTING ---
-    # id_prompt = (
-    #     "Extract the following fields from the National ID: ID_NUMBER, DATE_OF_BIRTH, GENDER, NATIONALITY. "
-    #     "DATE_OF_BIRTH must be strictly in YYYY-MM-DD format. "
-    #     "GENDER must be strictly 'MALE', 'FEMALE', or the equivalent in the document's language. "
-    #     "ID_NUMBER must be a clean string containing only alphanumeric characters and hyphens. "
-    #     "If a value for a field cannot be determined, return null for its 'extracted_value'. "
-    #     "Return the result as a JSON object containing a single key 'fields', which is a list of objects. Each object in the list must have keys: 'field_name' and 'extracted_value'."
-    #     "Do not include the source type in the response."
-    # )
-    # try:
-    #     id_image_bytes, id_image_mime = convert_file_to_image_bytes(id_bytes, id_file.mimetype)
-    #     if not id_image_bytes:
-    #         return jsonify({"error": "Failed to process National ID file."}), 400
+    # National ID extraction enabled
+    id_prompt = (
+        "Extract the following fields from the National ID: ID_NUMBER, DATE_OF_BIRTH, GENDER, NATIONALITY, PLACE OF BIRTH, FULL NAME, ISSUE DATE. "
+        "DATE_OF_BIRTH must be strictly in YYYY-MM-DD format. "
+        "GENDER must be strictly 'MALE', 'FEMALE', or the equivalent in the document's language. "
+        "ID_NUMBER must be a clean string containing only alphanumeric characters and hyphens. "
+        "If a value for a field cannot be determined, return null for its 'extracted_value'. "
+        "Return the result as a JSON object containing a single key 'fields', which is a list of objects. Each object in the list must have keys: 'field_name' and 'extracted_value'."
+        "Do not include the source type in the response."
+    )
+    try:
+        id_image_bytes, id_image_mime = convert_file_to_image_bytes(id_bytes, id_file.mimetype)
+        if not id_image_bytes:
+            return jsonify({"error": "Failed to process National ID file."}), 400
 
+        id_raw = gemini_extract(id_image_bytes, id_prompt, id_image_mime)
+        print(f"DEBUG: Raw Gemini response for National ID: {json.dumps(id_raw, indent=2)}")
 
-    #     id_raw = gemini_extract(id_image_bytes, id_prompt, id_image_mime)
-    #     print(f"DEBUG: Raw Gemini response for National ID: {json.dumps(id_raw, indent=2)}")
+        # --- POST-PROCESSING: Ensure all required keys and types for Pydantic validation ---
+        for field in id_raw.get('fields', []):
+            if 'extracted_value' in field and field['extracted_value'] is not None:
+                field['extracted_value'] = str(field['extracted_value'])
+            if 'corrected_value' not in field:
+                field['corrected_value'] = None
+            if 'confidence_score' not in field:
+                field['confidence_score'] = 0.99
+            if 'is_corrected' not in field:
+                field['is_corrected'] = False
 
-    #     id_raw['document_id'] = document_id
-    #     id_schema = HTRSchema(**id_raw)
-    # except (ValidationError, ValueError) as e:
-    #     error_details = e.errors() if isinstance(e, ValidationError) else str(e)
-    #     print(f"ERROR: National ID validation failed. Details: {error_details}") # Add server-side logging
-    #     return jsonify({"error": "National ID extraction or validation failed", "details": error_details}), 422
+        id_raw['document_id'] = document_id
+        id_raw['source_type'] = 'ID_CARD'
+        id_schema = HTRSchema(**id_raw)
+    except (ValidationError, ValueError) as e:
+        error_details = e.errors() if isinstance(e, ValidationError) else str(e)
+        print(f"ERROR: National ID validation failed. Details: {error_details}") # Add server-side logging
+        return jsonify({"error": "National ID extraction or validation failed", "details": error_details}), 422
 
 
     # Phase 3: Database Storage
     with app.app_context():
-        # for schema in [mandate_schema, id_schema]: # Modified to only process mandate_schema
         for field in mandate_schema.fields:
-            result = HTRResult(
+            existing = HTRResult.query.filter_by(
                 document_id=document_id,
                 source_type=mandate_schema.source_type,
-                field_name=field.field_name,
-                extracted_value=field.extracted_value,
-                confidence_score=field.confidence_score,
-                is_corrected=field.is_corrected,
-                corrected_value=field.corrected_value
-            )
-            db.session.add(result)
+                field_name=field.field_name
+            ).first()
+            if existing:
+                existing.extracted_value = field.extracted_value
+                existing.confidence_score = field.confidence_score
+                existing.is_corrected = field.is_corrected
+                existing.corrected_value = field.corrected_value
+                db.session.add(existing)
+            else:
+                result = HTRResult(
+                    document_id=document_id,
+                    source_type=mandate_schema.source_type,
+                    field_name=field.field_name,
+                    extracted_value=field.extracted_value,
+                    confidence_score=field.confidence_score,
+                    is_corrected=field.is_corrected,
+                    corrected_value=field.corrected_value
+                )
+                db.session.add(result)
         db.session.commit()
 
     # Phase 4: Final Output
+    # Map Mandate Card fields to expected frontend keys
+    mandate_fields = {
+        "profession": None,
+        "employment_status": None,
+        "monthly_salary": None,
+        "employer_address": None,
+        "current_employer": None
+    }
+    for f in mandate_schema.fields:
+        key = f.field_name.lower().replace(' ', '_')
+        if key in mandate_fields:
+            mandate_fields[key] = f.extracted_value
+        # Support alternate field names
+        if key == "gross_monthly_income":
+            mandate_fields["monthly_salary"] = f.extracted_value
+        if key == "occupation":
+            mandate_fields["profession"] = f.extracted_value
+        if key == "employer_address":
+            mandate_fields["employer_address"] = f.extracted_value
+        if key == "employer_name" or key == "current_employer":
+            mandate_fields["current_employer"] = f.extracted_value
+        if key == "employment_status":
+            mandate_fields["employment_status"] = f.extracted_value
+
+    # Map ID Card fields to expected frontend keys
+    id_fields = {
+        "full_name": None,
+        "id_number": None,
+        "date_of_birth": None,
+        "gender": None,
+        "nationality": None,
+        "issue_date": None,
+        "place_of_birth": None
+    }
+    for f in id_schema.fields:
+        key = f.field_name.lower().replace(' ', '_')
+        if key in id_fields:
+            id_fields[key] = f.extracted_value
+
     response = {
         "document_id": document_id,
-        "mandate_card": [f.model_dump() for f in mandate_schema.fields],
-        "national_id": [] # Return an empty list for now
+        "mandate_card": mandate_fields,
+        "national_id": id_fields
     }
     return jsonify(response), 201
 
