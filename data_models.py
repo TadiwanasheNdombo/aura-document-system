@@ -3,7 +3,7 @@ from typing import List, Optional
 
 class ExtractedField(BaseModel):
     field_name: str = Field(...)
-    extracted_value: Optional[str]
+    extracted_value: Optional[str] = None
     confidence_score: float = Field(default=0.99)
     is_corrected: bool = Field(default=False)
     corrected_value: Optional[str]
@@ -11,7 +11,7 @@ class ExtractedField(BaseModel):
 class HTRSchema(BaseModel):
     document_id: str = Field(...)
     source_type: str = Field(...)
-    fields: List[ExtractedField]
+    fields: Optional[List[ExtractedField]] = [] # Make the fields list optional
 
 # Mandate Card Target Fields: SURNAME, NAME, OCCUPATION, GROSS MONTHLY INCOME
 # National ID Target Fields: ID_NUMBER, DATE_OF_BIRTH, GENDER, NATIONALITY

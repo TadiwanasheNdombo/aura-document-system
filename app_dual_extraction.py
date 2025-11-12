@@ -1,36 +1,103 @@
 import os
+import time
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from db_models import db, HTRResult
 from data_models import HTRSchema, ExtractedField
 from pydantic import ValidationError
 import json
-from google.generativeai import GenerativeModel
+import fitz  # PyMuPDF
+from PIL import Image
+import io
+import google.generativeai as genai
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:your_password@localhost:5432/aura_db'  # Update credentials
+CORS(app) # Enable CORS for all routes
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:root@localhost:5432/aura_db'  # <-- UPDATE THIS with your actual PostgreSQL password
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
-# Dummy Gemini extraction logic (replace with real API call)
-def gemini_extract(image_bytes, prompt):
-    genai.configure(api_key="AIzaSyAMBaG7hKhyNwEsMz_PaKkh5EV0yJN8ESE")  # Replace with your actual Gemini API key
-    model = GenerativeModel('gemini-pro')
-    response = model.generate_content(prompt, image=image_bytes)
-    # Parse the response to get the JSON output
-    # Gemini may return a string, so parse it to dict
+def convert_file_to_image_bytes(file_bytes, mime_type):
+    """
+    Converts the first page of a PDF to a JPEG image, or passes through other image types.
+    Returns the image bytes and the new mime type.
+    """
+    if mime_type == 'application/pdf':
+        try:
+            # Open the PDF from bytes
+            pdf_document = fitz.open(stream=file_bytes, filetype="pdf")
+            # Get the first page
+            page = pdf_document.load_page(0)
+            # Render page to a pixmap (an image)
+            pix = page.get_pixmap(dpi=200) # Higher DPI for better quality
+            # Convert pixmap to a PIL Image
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            # Save the PIL image to a byte stream
+            img_byte_arr = io.BytesIO()
+            img.save(img_byte_arr, format='JPEG')
+            pdf_document.close()
+            return img_byte_arr.getvalue(), 'image/jpeg'
+        except Exception as e:
+            raise ValueError(f"Failed to convert PDF to image: {e}")
+    # If it's already an image, just return the original bytes
+    return file_bytes, mime_type
+
+ # Gemini extraction logic for images
+def gemini_extract(image_bytes, prompt, mime_type='image/jpeg', model_name='gemini-2.5-flash'):
+    """
+    Extracts text from an image using the Gemini Pro Vision model.
+    """
+    # --- API Key Configuration ---
+    # IMPORTANT: For production, it is much safer to use environment variables.
+    # 1. Best Practice: Use an environment variable (see instructions below).
+    # 2. Quick Test (Less Secure): Hardcode your key directly.
+    api_key = "AIzaSyCADmP2lF_-0A3IGCiBmXPogiFlkFg-h1I"  # <-- UPDATED KEY (Ensure this is your valid key)
+    if "YOUR_API_KEY_HERE" in api_key:
+        print("WARNING: Using a hardcoded API key. Set the GEMINI_API_KEY environment variable for better security.")
+    genai.configure(api_key=api_key)
+
+    # Use the supported Gemini model for image analysis
+    model = genai.GenerativeModel(model_name)
+
+    # The vision model expects a list of content parts
+    image_part = {
+        "mime_type": mime_type,
+        "data": image_bytes
+    }
+
     try:
+        response = model.generate_content([prompt, image_part])
+        # Clean up the response text to extract only the JSON part
         extracted_json = json.loads(response.text)
-    except Exception:
-        # Fallback: try to extract JSON from text
+    except (json.JSONDecodeError, ValueError) as e:
+        # Fallback: if the response is not clean JSON, try to find it within the text
         import re
         match = re.search(r'\{.*\}', response.text, re.DOTALL)
         if match:
             extracted_json = json.loads(match.group(0))
         else:
-            extracted_json = {"fields": []}
+            raise ValueError(f"Failed to parse JSON from Gemini response. Raw response: {response.text}") from e
+            
     return extracted_json
+
+def list_gemini_models():
+    """Lists available Gemini models and their capabilities."""
+    api_key = os.environ.get("GEMINI_API_KEY") or "AIzaSyCADmP2lF_-0A3IGCiBmXPogiFlkFg-h1I" # <-- UPDATED KEY
+    if api_key == "PASTE_YOUR_REAL_GEMINI_API_KEY_HERE":
+        print("WARNING: GEMINI_API_KEY not set. Cannot list models.")
+        return
+    genai.configure(api_key=api_key)
+    print("\n--- Listing Available Gemini Models ---")
+    for m in genai.list_models():
+        if "generateContent" in m.supported_generation_methods:
+            print(f"  Model: {m.name}")
+            print(f"    Description: {m.description}")
+            print(f"    Input Modalities: {m.input_token_limit}") # This often implies modalities
+            print(f"    Supported Methods: {m.supported_generation_methods}")
+            print("-" * 30)
+    print("--- End Model List ---\n")
 
 @app.cli.command('init-db')
 def init_db():
@@ -47,66 +114,114 @@ def extract_dual_source():
     document_id = request.form['document_id']
     mandate_file = request.files['mandate_file']
     id_file = request.files['id_file']
-    mandate_bytes = mandate_file.read()
-    id_bytes = id_file.read()
+
+    try:
+        mandate_bytes = mandate_file.read()
+        id_bytes = id_file.read()
+    except Exception as e:
+        return jsonify({"error": "Failed to read file bytes", "details": str(e)}), 400
+
 
     # Phase 2: Extraction Logic with accuracy-focused prompts
     mandate_prompt = (
         "Extract the following fields from the Mandate Card: SURNAME, NAME, OCCUPATION, GROSS MONTHLY INCOME. "
-        "GROSS MONTHLY INCOME must be a clean number (float or string) stripped of all currency symbols and text. "
-        "For names and occupation, if the handwritten text contains common HTR errors (e.g., '7' instead of 'T'), apply contextual correction to infer the correct word. "
-        "Return the result as a JSON object with keys: 'field_name' and 'extracted_value'."
-        "Source type must be 'MANDATE_CARD'."
+        "GROSS MONTHLY INCOME must be a clean number (float) stripped of all currency symbols and text. "
+        "For names and occupation, if the handwritten text contains common HTR errors, apply contextual correction to infer the correct word. "
+        "If a value for a field cannot be determined, return null for its 'extracted_value'. "
+        "Return the result as a JSON object containing a single key 'fields', which is a list of objects. Each object in the list must have keys: 'field_name' and 'extracted_value'."
+        "Do not include the source type in the response."
     )
-    mandate_raw = gemini_extract(mandate_bytes, mandate_prompt)
-    mandate_raw['document_id'] = document_id
-    mandate_raw['source_type'] = 'MANDATE_CARD'
-    try:
-        mandate_schema = HTRSchema(**mandate_raw)
-    except ValidationError as e:
-        return jsonify({"error": "Mandate Card validation failed", "details": e.errors()}), 422
 
-    id_prompt = (
-        "Extract the following fields from the National ID: ID_NUMBER, DATE_OF_BIRTH, GENDER, NATIONALITY. "
-        "DATE_OF_BIRTH must be strictly in YYYY-MM-DD format. "
-        "GENDER must be strictly 'MALE' or 'FEMALE'. "
-        "ID_NUMBER must be a clean string containing only digits and hyphens. "
-        "Return the result as a JSON object with keys: 'field_name' and 'extracted_value'."
-        "Source type must be 'NATIONAL_ID'."
-    )
-    id_raw = gemini_extract(id_bytes, id_prompt)
-    id_raw['document_id'] = document_id
-    id_raw['source_type'] = 'NATIONAL_ID'
     try:
-        id_schema = HTRSchema(**id_raw)
-    except ValidationError as e:
-        return jsonify({"error": "National ID validation failed", "details": e.errors()}), 422
+        # Assuming PDF files are sent, we need to handle them. For now, let's assume they are images.
+        # A real implementation would convert PDF pages to images first.
+        mandate_image_bytes, mandate_image_mime = convert_file_to_image_bytes(mandate_bytes, mandate_file.mimetype)
+        if not mandate_image_bytes:
+            return jsonify({"error": "Failed to process Mandate Card file."}), 400
+
+        # Extraction for Mandate Card
+        mandate_raw = gemini_extract(mandate_image_bytes, mandate_prompt, mandate_image_mime)
+
+        # --- CRITICAL FIX: PAUSE HERE to respect the Free Tier's RPM limit ---
+        print("INFO: Pausing for 60 seconds to respect API rate limits...")
+        time.sleep(60) # Increased pause to 60 seconds for the free tier
+        # --- DEBUGGING: Log the raw response from Gemini ---
+        print(f"DEBUG: Raw Gemini response for Mandate Card: {json.dumps(mandate_raw, indent=2)}")
+
+        # --- POST-PROCESSING: Ensure all required keys and types for Pydantic validation ---
+        for field in mandate_raw.get('fields', []):
+            # Ensure extracted_value is a string
+            if 'extracted_value' in field and field['extracted_value'] is not None:
+                field['extracted_value'] = str(field['extracted_value'])
+            # Add missing keys with defaults
+            if 'corrected_value' not in field:
+                field['corrected_value'] = None
+            if 'confidence_score' not in field:
+                field['confidence_score'] = 0.99
+            if 'is_corrected' not in field:
+                field['is_corrected'] = False
+
+        mandate_raw['document_id'] = document_id
+        mandate_raw['source_type'] = 'MANDATE_CARD'
+        mandate_schema = HTRSchema(**mandate_raw)
+    except (ValidationError, ValueError) as e:
+        error_details = e.errors() if isinstance(e, ValidationError) else str(e)
+        print(f"ERROR: Mandate Card validation failed. Details: {error_details}") # Add server-side logging
+        return jsonify({"error": "Mandate Card extraction or validation failed", "details": error_details}), 422
+
+    # --- TEMPORARILY DISABLED FOR RATE-LIMIT TESTING ---
+    # id_prompt = (
+    #     "Extract the following fields from the National ID: ID_NUMBER, DATE_OF_BIRTH, GENDER, NATIONALITY. "
+    #     "DATE_OF_BIRTH must be strictly in YYYY-MM-DD format. "
+    #     "GENDER must be strictly 'MALE', 'FEMALE', or the equivalent in the document's language. "
+    #     "ID_NUMBER must be a clean string containing only alphanumeric characters and hyphens. "
+    #     "If a value for a field cannot be determined, return null for its 'extracted_value'. "
+    #     "Return the result as a JSON object containing a single key 'fields', which is a list of objects. Each object in the list must have keys: 'field_name' and 'extracted_value'."
+    #     "Do not include the source type in the response."
+    # )
+    # try:
+    #     id_image_bytes, id_image_mime = convert_file_to_image_bytes(id_bytes, id_file.mimetype)
+    #     if not id_image_bytes:
+    #         return jsonify({"error": "Failed to process National ID file."}), 400
+
+
+    #     id_raw = gemini_extract(id_image_bytes, id_prompt, id_image_mime)
+    #     print(f"DEBUG: Raw Gemini response for National ID: {json.dumps(id_raw, indent=2)}")
+
+    #     id_raw['document_id'] = document_id
+    #     id_schema = HTRSchema(**id_raw)
+    # except (ValidationError, ValueError) as e:
+    #     error_details = e.errors() if isinstance(e, ValidationError) else str(e)
+    #     print(f"ERROR: National ID validation failed. Details: {error_details}") # Add server-side logging
+    #     return jsonify({"error": "National ID extraction or validation failed", "details": error_details}), 422
+
 
     # Phase 3: Database Storage
     with app.app_context():
-        for schema in [mandate_schema, id_schema]:
-            for field in schema.fields:
-                result = HTRResult(
-                    document_id=document_id,
-                    source_type=schema.source_type,
-                    field_name=field.field_name,
-                    extracted_value=field.extracted_value,
-                    confidence_score=field.confidence_score,
-                    is_corrected=field.is_corrected,
-                    corrected_value=field.corrected_value
-                )
-                db.session.add(result)
+        # for schema in [mandate_schema, id_schema]: # Modified to only process mandate_schema
+        for field in mandate_schema.fields:
+            result = HTRResult(
+                document_id=document_id,
+                source_type=mandate_schema.source_type,
+                field_name=field.field_name,
+                extracted_value=field.extracted_value,
+                confidence_score=field.confidence_score,
+                is_corrected=field.is_corrected,
+                corrected_value=field.corrected_value
+            )
+            db.session.add(result)
         db.session.commit()
 
     # Phase 4: Final Output
     response = {
         "document_id": document_id,
-        "mandate_card": [f.dict() for f in mandate_schema.fields],
-        "national_id": [f.dict() for f in id_schema.fields]
+        "mandate_card": [f.model_dump() for f in mandate_schema.fields],
+        "national_id": [] # Return an empty list for now
     }
     return jsonify(response), 201
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True)
+    list_gemini_models() # Call this to list models on startup
+    app.run(port=5001, debug=True)

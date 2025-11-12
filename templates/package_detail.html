@@ -101,6 +101,9 @@
         #loading-spinner {
             display: none; /* Hidden by default */
         }
+        .icon-hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -264,12 +267,116 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Form panel elements
-    const formToggleBtns = document.querySelectorAll('.form-toggle-btn');
-    const formContainers = document.querySelectorAll('.form-container');
+    console.log("DOM fully loaded and parsed.");
+    
+    // --- Gemini-powered auto-fetch logic ---
     const autoFetchBtn = document.getElementById('auto-fetch-btn');
+    if (autoFetchBtn) {
     const spinner = document.getElementById('loading-spinner');
-    const accountForm = document.getElementById('account-form');
+
+    console.log("Auto-Fetch Button:", autoFetchBtn);
+    // Map extracted field names to form input IDs
+    const fieldIdMap = {
+        'SURNAME': 'fullName', // Assuming surname and name are combined
+        'NAME': 'fullName',
+        'OCCUPATION': 'profession',
+        'GROSS_MONTHLY_INCOME': 'salary',
+        'ID_NUMBER': 'idNumber',
+        'DATE_OF_BIRTH': 'dob',
+        'GENDER': 'gender',
+        'NATIONALITY': 'nationality'
+    };
+
+        autoFetchBtn.addEventListener('click', async function() {
+        console.log("Auto-Fetch button clicked!");
+        // Find the first mandate and first KYC document from the lists
+        const mandateDocEl = document.querySelector('.doc-item[data-category="mandate"]');
+        const idDocEl = document.querySelector('.doc-item[data-category="kyc"]');
+
+        console.log("Mandate Doc Element:", mandateDocEl);
+        console.log("ID Doc Element:", idDocEl);
+        if (!mandateDocEl || !idDocEl) {
+            alert('Error: Could not find a Mandate Card and a KYC document in the lists.');
+            console.error('Missing Mandate Card or KYC document for auto-fetch. Please ensure both are listed.');
+            return;
+        }
+
+        const mandateFilename = mandateDocEl.dataset.filename;
+        const idFilename = idDocEl.dataset.filename;
+
+        // Show loading state
+        autoFetchBtn.disabled = true;
+        spinner.style.display = 'inline-block';
+        console.log("Showing spinner, hiding magic icon.");
+        autoFetchBtn.querySelector('.fa-magic').classList.add('icon-hidden');
+
+        try {
+            // Fetch files as Blobs
+            const mandateFileResponse = await fetch(`/view_document/{{ package_name }}/${mandateFilename}`);
+            const idFileResponse = await fetch(`/view_document/{{ package_name }}/${idFilename}`);
+
+            console.log("Fetched mandate file response status:", mandateFileResponse.status);
+            if (!mandateFileResponse.ok || !idFileResponse.ok) {
+                throw new Error('Failed to fetch document files from the server.');
+            }
+
+            const mandateBlob = await mandateFileResponse.blob();
+            const idBlob = await idFileResponse.blob();
+
+            // Prepare FormData for the extraction service
+            const formData = new FormData();
+            formData.append('document_id', '{{ package_name }}');
+            formData.append('mandate_file', mandateBlob, mandateFilename);
+            formData.append('id_file', idBlob, idFilename);
+
+            console.log("Sending request to extraction service...");
+            // Call the extraction service (running on port 5001)
+            const extractResponse = await fetch('http://127.0.0.1:5001/extract_dual_source', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!extractResponse.ok) {
+                console.error("Extraction service returned an error status:", extractResponse.status);
+                const errorData = await extractResponse.json();
+                throw new Error(`Extraction failed: ${errorData.error || 'Unknown error'}`);
+            }
+
+            const data = await extractResponse.json();
+            console.log("Extraction successful, data received:", data);
+            populateForms(data);
+            alert('Fields auto-populated successfully! Please review for accuracy.');
+
+        } catch (err) {
+            console.error('Auto-fetch error:', err);
+            alert('Auto-fetch failed: ' + err.message);
+        } finally {
+            // Restore button state
+            autoFetchBtn.disabled = false;
+            spinner.style.display = 'none';
+            console.log("Hiding spinner, showing magic icon.");
+            autoFetchBtn.querySelector('.fa-magic').classList.remove('icon-hidden');
+        } // End of try-catch-finally block
+    }); // End of autoFetchBtn.addEventListener
+    }
+
+    function populateForms(data) {
+        const allFields = [...(data.mandate_card || []), ...(data.national_id || [])];
+        allFields.forEach(field => {
+            const inputId = fieldIdMap[field.field_name];
+            if (inputId) {
+                const inputElement = document.getElementById(inputId);
+                if (inputElement) {
+                    // Handle combined Full Name field
+                    if (field.field_name === 'SURNAME' || field.field_name === 'NAME') {
+                        inputElement.value = (inputElement.value + ' ' + field.extracted_value).trim();
+                    } else {
+                        inputElement.value = field.extracted_value;
+                    }
+                }
+            }
+        });
+    }
 
     // Document panel elements
     const viewerPane = document.getElementById('viewer-pane');
@@ -284,6 +391,10 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentIndex = -1;
 
     // --- Form Panel Logic ---
+    const formToggleBtns = document.querySelectorAll('.form-toggle-btn');
+    const formContainers = document.querySelectorAll('.form-container');
+    const accountForm = document.getElementById('account-form');
+
     formToggleBtns.forEach(btn => {
         btn.addEventListener('click', function() {
             formToggleBtns.forEach(b => {
@@ -323,6 +434,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateDocCounter() {
+        console.log(`Updating counter. Index: ${currentIndex}, Total: ${currentCategoryDocs.length}`);
         if (currentCategoryDocs.length > 0) {
             docCounter.textContent = `${currentIndex + 1} / ${currentCategoryDocs.length}`;
         } else {
@@ -336,6 +448,7 @@ document.addEventListener('DOMContentLoaded', function() {
             docItems.forEach(i => i.classList.remove('active'));
             this.classList.add('active');
             
+            console.log(`Document clicked: ${this.dataset.filename}`);
             const filename = this.dataset.filename;
             currentDocument = filename;
             updateDocumentView(filename);
@@ -362,91 +475,41 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // --- Auto-Fetch & Submit Logic ---
-    autoFetchBtn.addEventListener('click', async function() {
-        if (!currentDocument) {
-            alert('Please select a document to fetch details from.');
-            return;
-        }
+    if (accountForm) {
+        accountForm.addEventListener('submit', function(e) {
+            e.preventDefault(); // Prevent default form submission
 
-        spinner.style.display = 'inline-block';
-        autoFetchBtn.disabled = true;
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                Submitting...
+            `;
 
-        try {
-            const response = await fetch(`/api/fetch_details/{{ package_name }}/${currentDocument}`);
-            const data = await response.json();
-
-            if (data.success) {
-                const fields = data.fields;
-                console.log("Received fields:", fields); // For debugging
-
-                // --- Personal Details Form Population ---
-                // Note the mapping from 'full_name' (from API) to the 'fullName' input.
-                document.getElementById('fullName').value = fields.full_name || '';
-                document.getElementById('idNumber').value = fields.id_number || '';
-                document.getElementById('dob').value = fields.date_of_birth || '';
-                document.getElementById('nationality').value = fields.nationality || '';
-                document.getElementById('issueDate').value = fields.issue_date || '';
-                document.getElementById('expiryDate').value = fields.expiry_date || '';
-                // The 'gender' field is not extracted by the current backend, so we'll leave it blank.
-                document.getElementById('gender').value = fields.gender || '';
-
-                // --- Basic Details Form Population ---
-                document.getElementById('profession').value = fields.profession || '';
-                document.getElementById('employmentStatus').value = fields.employment_status || '';
-                // The 'currentEmployer' field is not extracted, but we can infer it from employment status.
-                if (fields.employment_status === 'Self-Employed') {
-                    document.getElementById('currentEmployer').value = 'SELF';
+            fetch(`/submit_and_delete_package/{{ package_name }}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
                 }
-                document.getElementById('salary').value = fields.monthly_salary || '';
-                document.getElementById('employerAddress').value = fields.employer_address || '';
-
-                alert('Details fetched successfully!');
-            } else {
-                alert('Failed to fetch details: ' + (data.error || 'Unknown error'));
-            }
-        } catch (error) {
-            console.error('Error fetching details:', error);
-            alert('An error occurred while communicating with the server.');
-        } finally {
-            spinner.style.display = 'none';
-            autoFetchBtn.disabled = false;
-        }
-    });
-
-    accountForm.addEventListener('submit', function(e) {
-        e.preventDefault(); // Prevent default form submission
-
-        const submitBtn = this.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = `
-            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            Submitting...
-        `;
-
-        fetch(`/submit_and_delete_package/{{ package_name }}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                window.location.href = data.redirect_url;
-            } else {
-                alert('Error: ' + (data.error || 'Could not process the request.'));
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    alert('Error: ' + (data.error || 'Could not process the request.'));
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Submit Account Details';
+                }
+            })
+            .catch(error => {
+                console.error('Submission error:', error);
+                alert('An unexpected error occurred.');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = 'Submit Account Details';
-            }
-        })
-        .catch(error => {
-            console.error('Submission error:', error);
-            alert('An unexpected error occurred.');
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Submit Account Details';
+            });
         });
-    });
+    }
 });
 </script>
 </body>

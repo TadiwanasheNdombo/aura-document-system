@@ -1,14 +1,31 @@
 import os
 import shutil
 import json
+import mimetypes
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
+from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.utils import secure_filename
 import utils.package_processor as package_processor
 import utils.document_processor as document_processor
+from flask_sqlalchemy import SQLAlchemy
+from db_models import HTRResult
+
+# Engine Declaration
+# The engine responsible for text recognition in this Active Learning prototype is the Google GenAI SDK (Gemini).
+# It functions as an HTR (Handwritten Text Recognition) and ICR (Intelligent Character Recognition) engine,
+# which is necessary for the high-accuracy extraction of both handwritten forms and structured ID documents.
+# Standard OCR is specifically not used for this task.
 
 app = Flask(__name__)
+CORS(app) # Enable CORS for all routes
 app.config['SECRET_KEY'] = 'a-very-secret-key-that-should-be-changed' # Change this in production
+
+# Database configuration
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:root@localhost:5432/aura_db'  # Update as needed
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
 
 # --- User Management Setup ---
 login_manager = LoginManager()
@@ -327,40 +344,39 @@ def view_document(package_name, filename):
     if current_user.role != 'CPC':
         return "Access Denied", 403
 
+    print(f"DEBUG: view_document called for package: {package_name}, filename: {filename}")
+
     # Determine the base directory
     package_dir = None
     if os.path.exists(os.path.join(CLEAN_DIR, package_name)):
         package_dir = os.path.join(CLEAN_DIR, package_name)
+        print(f"DEBUG: Package found in CLEAN_DIR: {package_dir}")
     elif os.path.exists(os.path.join(FLAGGED_DIR, package_name)):
         package_dir = os.path.join(FLAGGED_DIR, package_name)
+        print(f"DEBUG: Package found in FLAGGED_DIR: {package_dir}")
 
     if package_dir:
-        file_path = os.path.join(package_dir, filename)
-        if os.path.exists(file_path):
-            return send_from_directory(package_dir, filename)
+        # Securely join the path and normalize it to prevent directory traversal attacks.
+        # os.path.normpath is crucial here.
+        safe_path = os.path.normpath(os.path.join(package_dir, filename))
+        print(f"DEBUG: Constructed safe_path: {safe_path}")
+
+        # Security check: ensure the resolved path is still within the package directory
+        if not safe_path.startswith(os.path.normpath(package_dir)):
+            print(f"SECURITY ALERT: Path traversal attempt detected for {safe_path} outside {package_dir}")
+            return "Forbidden", 403
+
+        if os.path.exists(safe_path):
+            # send_from_directory needs the directory and the filename separately.
+            directory, file = os.path.split(safe_path)
+            # Explicitly set the mimetype to prevent browser download prompts
+            mimetype, _ = mimetypes.guess_type(safe_path)
+            print(f"DEBUG: Serving file {file} with mimetype: {mimetype}")
+            return send_from_directory(directory, file, mimetype=mimetype)
     
+    print(f"DEBUG: File not found or package_dir not determined for {package_name}/{filename}")
     return "File not found", 404
 
-@app.route('/api/fetch_details/<package_name>/<path:filename>')
-@login_required
-def api_fetch_details(package_name, filename):
-    """API endpoint to run OCR on a specific document and return extracted fields."""
-    if current_user.role != 'CPC':
-        return jsonify({'success': False, 'error': 'Access Denied'}), 403
-
-    # Find the file path
-    package_dir = None
-    if os.path.exists(os.path.join(CLEAN_DIR, package_name)):
-        package_dir = os.path.join(CLEAN_DIR, package_name)
-    elif os.path.exists(os.path.join(FLAGGED_DIR, package_name)):
-        package_dir = os.path.join(FLAGGED_DIR, package_name)
-
-    if not package_dir:
-        return jsonify({'success': False, 'error': 'Package not found'}), 404
-
-    file_path = os.path.join(package_dir, filename)
-    result = document_processor.process_document(file_path)
-    return jsonify(result)
 
 @app.route('/old_index')
 def old_index():
@@ -400,4 +416,15 @@ def submit_and_delete_package(package_name):
         return jsonify({'success': False, 'error': 'Package not found.'}), 404
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)
+
+import os
+import shutil
+import json
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from werkzeug.utils import secure_filename
+import utils.package_processor as package_processor
+import utils.document_processor as document_processor

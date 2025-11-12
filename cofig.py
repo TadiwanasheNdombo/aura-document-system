@@ -1,13 +1,14 @@
 import os
 
 class Config:
+    # Security and Base App Configuration
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'aura-secret-key-2024'
+    
+    # File Upload Configuration
     UPLOAD_FOLDER = 'static/uploads'
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
     ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
     
-    # Tesseract OCR configuration (if needed)
-    TESSERACT_CMD = '/usr/bin/tesseract'  # Path may vary by system
-    
-    # Poppler path for PDF to image conversion (if needed)
-    POPPLER_PATH = None  # Set if poppler is not in system PATH
+    # Database Configuration (add if needed)
+    # SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///aura_db.sqlite'
+    # SQLALCHEMY_TRACK_MODIFICATIONS = False
