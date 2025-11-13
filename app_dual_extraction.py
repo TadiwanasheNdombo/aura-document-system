@@ -124,9 +124,9 @@ def extract_dual_source():
 
     # Phase 2: Extraction Logic with accuracy-focused prompts
     mandate_prompt = (
-        "Extract the following fields from the Mandate Card: SURNAME, NAME, OCCUPATION, GROSS MONTHLY INCOME. "
+        "Extract the following fields from the Mandate Card: SURNAME, NAME, OCCUPATION, GROSS MONTHLY INCOME, CURRENT EMPLOYER, EMPLOYER ADDRESS. "
         "GROSS MONTHLY INCOME must be a clean number (float) stripped of all currency symbols and text. "
-        "For names and occupation, if the handwritten text contains common HTR errors, apply contextual correction to infer the correct word. "
+        "For names, occupation, employer, and address, if the handwritten text contains common HTR errors, apply contextual correction to infer the correct word. "
         "If a value for a field cannot be determined, return null for its 'extracted_value'. "
         "Return the result as a JSON object containing a single key 'fields', which is a list of objects. Each object in the list must have keys: 'field_name' and 'extracted_value'."
         "Do not include the source type in the response."
@@ -209,6 +209,7 @@ def extract_dual_source():
 
     # Phase 3: Database Storage
     with app.app_context():
+        # Upsert Mandate Card fields
         for field in mandate_schema.fields:
             existing = HTRResult.query.filter_by(
                 document_id=document_id,
@@ -225,6 +226,30 @@ def extract_dual_source():
                 result = HTRResult(
                     document_id=document_id,
                     source_type=mandate_schema.source_type,
+                    field_name=field.field_name,
+                    extracted_value=field.extracted_value,
+                    confidence_score=field.confidence_score,
+                    is_corrected=field.is_corrected,
+                    corrected_value=field.corrected_value
+                )
+                db.session.add(result)
+        # Upsert National ID fields
+        for field in id_schema.fields:
+            existing = HTRResult.query.filter_by(
+                document_id=document_id,
+                source_type=id_schema.source_type,
+                field_name=field.field_name
+            ).first()
+            if existing:
+                existing.extracted_value = field.extracted_value
+                existing.confidence_score = field.confidence_score
+                existing.is_corrected = field.is_corrected
+                existing.corrected_value = field.corrected_value
+                db.session.add(existing)
+            else:
+                result = HTRResult(
+                    document_id=document_id,
+                    source_type=id_schema.source_type,
                     field_name=field.field_name,
                     extracted_value=field.extracted_value,
                     confidence_score=field.confidence_score,
